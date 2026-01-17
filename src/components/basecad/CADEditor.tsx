@@ -8,6 +8,7 @@ import { ExportDialog } from './ExportDialog';
 import { MeasurementDisplay } from './MeasurementDisplay';
 import { useCanvasHistory } from '@/hooks/useCanvasHistory';
 import { useToast } from '@/hooks/use-toast';
+import { exportToDXF, importFromDXF } from '@/utils/dxfUtils';
 import type { Tool } from '@/types/canvas';
 
 const STORAGE_KEY = 'basecad-drawing';
@@ -88,24 +89,50 @@ export function CADEditor() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const fileName = file.name.toLowerCase();
     const reader = new FileReader();
+    
     reader.onload = (event) => {
       const content = event.target?.result as string;
-      try {
-        JSON.parse(content); // Validate JSON
-        setUndoState(content);
-        pushState(content);
-        localStorage.setItem(STORAGE_KEY, content);
-        toast({
-          title: '✅ Drawing loaded!',
-          description: 'Your drawing has been opened successfully.',
-        });
-      } catch {
-        toast({
-          title: '❌ Invalid file',
-          description: 'Please select a valid BASECAD JSON file.',
-          variant: 'destructive',
-        });
+      
+      // Check if it's a DXF file
+      if (fileName.endsWith('.dxf')) {
+        try {
+          const canvasData = importFromDXF(content);
+          const jsonState = JSON.stringify(canvasData);
+          setUndoState(jsonState);
+          pushState(jsonState);
+          localStorage.setItem(STORAGE_KEY, jsonState);
+          toast({
+            title: '✅ DXF imported!',
+            description: 'Your AutoCAD drawing has been imported successfully.',
+          });
+        } catch (error) {
+          console.error('DXF import error:', error);
+          toast({
+            title: '❌ Import failed',
+            description: 'Could not parse the DXF file. Please check if it\'s valid.',
+            variant: 'destructive',
+          });
+        }
+      } else {
+        // Handle JSON files
+        try {
+          JSON.parse(content); // Validate JSON
+          setUndoState(content);
+          pushState(content);
+          localStorage.setItem(STORAGE_KEY, content);
+          toast({
+            title: '✅ Drawing loaded!',
+            description: 'Your drawing has been opened successfully.',
+          });
+        } catch {
+          toast({
+            title: '❌ Invalid file',
+            description: 'Please select a valid BASECAD JSON or DXF file.',
+            variant: 'destructive',
+          });
+        }
       }
     };
     reader.readAsText(file);
@@ -122,7 +149,7 @@ export function CADEditor() {
     });
   }, [toast]);
 
-  const handleExport = useCallback((format: 'json' | 'svg' | 'png') => {
+  const handleExport = useCallback((format: 'json' | 'svg' | 'png' | 'dxf') => {
     const state = localStorage.getItem(STORAGE_KEY) || '{}';
     
     if (format === 'json') {
@@ -149,6 +176,21 @@ export function CADEditor() {
         canvas.toBlob((blob) => {
           if (blob) saveAs(blob, 'drawing.png');
         });
+      }
+    } else if (format === 'dxf') {
+      try {
+        const data = JSON.parse(state);
+        const dxfContent = exportToDXF(data);
+        const blob = new Blob([dxfContent], { type: 'application/dxf' });
+        saveAs(blob, 'drawing.dxf');
+      } catch (error) {
+        console.error('DXF export error:', error);
+        toast({
+          title: '❌ Export failed',
+          description: 'Could not export to DXF.',
+          variant: 'destructive',
+        });
+        return;
       }
     }
     
@@ -225,7 +267,7 @@ export function CADEditor() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json,.basecad.json"
+        accept=".json,.basecad.json,.dxf"
         onChange={handleFileChange}
         className="hidden"
       />
