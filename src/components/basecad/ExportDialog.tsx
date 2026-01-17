@@ -1,21 +1,22 @@
 import { useState } from 'react';
-import { Download, FileJson, FileText, X } from 'lucide-react';
+import { Download, FileJson, FileText, X, FileCode2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ExportDialogProps {
   open: boolean;
   onClose: () => void;
-  onExport: (format: 'json' | 'svg' | 'png') => void;
+  onExport: (format: 'json' | 'svg' | 'png' | 'dxf') => void;
 }
 
 const exportOptions = [
   { format: 'json' as const, icon: FileJson, label: 'JSON', description: 'Save as project file' },
   { format: 'svg' as const, icon: FileText, label: 'SVG', description: 'Vector graphics' },
   { format: 'png' as const, icon: Download, label: 'PNG', description: 'Image file' },
+  { format: 'dxf' as const, icon: FileCode2, label: 'DXF', description: 'AutoCAD compatible' },
 ];
 
 export function ExportDialog({ open, onClose, onExport }: ExportDialogProps) {
-  const [selectedFormat, setSelectedFormat] = useState<'json' | 'svg' | 'png'>('json');
+  const [selectedFormat, setSelectedFormat] = useState<'json' | 'svg' | 'png' | 'dxf'>('json');
 
   if (!open) return null;
 
